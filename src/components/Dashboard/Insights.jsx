@@ -7,11 +7,13 @@ import {
   AlertTriangle,
   PiggyBank,
   CalendarClock,
-  Wallet
+  Wallet,
+  Copy,
+  CalendarX2
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { askFinancialAdvisor } from '../../services/deepseek';
-import { projectMonthEnd, budgetAlerts, categoryTrends, formatMoney } from '../../services/analytics';
+import { projectMonthEnd, budgetAlerts, categoryTrends, detectAnomalies, formatMoney } from '../../services/analytics';
 
 export default function Insights() {
   const { transactions, currency, summary, budgets } = useFinance();
@@ -44,6 +46,7 @@ export default function Insights() {
   const alerts = budgetAlerts(transactions, budgets);
   const activeAlerts = alerts.filter((a) => a.status !== 'ok');
   const trends = categoryTrends(transactions).slice(0, 3);
+  const anomalies = detectAnomalies(transactions);
 
   const fmt = (n) => formatMoney(n, currency);
   const alertMeta = {
@@ -165,6 +168,27 @@ export default function Insights() {
           </div>
         )}
       </div>
+
+      {/* D3 - Anomalías */}
+      {anomalies.length > 0 && (
+        <div className="neo-inset" style={{ padding: '14px', marginBottom: '12px' }}>
+          <span className="metric-hint" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+            <AlertTriangle size={14} color="var(--negative)" /> Anomalías detectadas
+          </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {anomalies.slice(0, 5).map((a, idx) => (
+              <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                {a.type === 'duplicate'
+                  ? <Copy size={15} style={{ flexShrink: 0, marginTop: '2px' }} color="var(--ia)" />
+                  : a.type === 'missed_recurring'
+                    ? <CalendarX2 size={15} style={{ flexShrink: 0, marginTop: '2px' }} color="var(--ia)" />
+                    : <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: '2px' }} color="var(--negative)" />}
+                <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontWeight: 600 }}>{a.message}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* D1 - Tendencias por categoría */}
       {trends.length > 0 && (

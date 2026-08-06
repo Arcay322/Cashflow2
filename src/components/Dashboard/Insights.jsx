@@ -13,12 +13,13 @@ import {
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { askFinancialAdvisor } from '../../services/deepseek';
-import { projectMonthEnd, budgetAlerts, categoryTrends, detectAnomalies, formatMoney } from '../../services/analytics';
+import { projectMonthEnd, budgetAlerts, categoryTrends, detectAnomalies, savingsRecommendations, generateSummary, formatMoney } from '../../services/analytics';
 
 export default function Insights() {
   const { transactions, currency, summary, budgets } = useFinance();
   const [advice, setAdvice] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [resumen, setResumen] = useState(null);
 
   const now = new Date();
   const thisMonth = now.toISOString().slice(0, 7);
@@ -47,6 +48,7 @@ export default function Insights() {
   const activeAlerts = alerts.filter((a) => a.status !== 'ok');
   const trends = categoryTrends(transactions).slice(0, 3);
   const anomalies = detectAnomalies(transactions);
+  const savingsRecs = savingsRecommendations(transactions, budgets);
 
   const fmt = (n) => formatMoney(n, currency);
   const alertMeta = {
@@ -189,6 +191,44 @@ export default function Insights() {
           </div>
         </div>
       )}
+
+      {/* D4 - Recomendaciones de ahorro */}
+      {savingsRecs.length > 0 && (
+        <div className="neo-inset" style={{ padding: '14px', marginBottom: '12px' }}>
+          <span className="metric-hint" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+            <PiggyBank size={14} color="var(--positive)" /> Recomendaciones de ahorro
+          </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {savingsRecs.slice(0, 3).map((r, idx) => (
+              <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                <PiggyBank size={15} style={{ flexShrink: 0, marginTop: '2px' }} color="var(--positive)" />
+                <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontWeight: 600 }}>{r.message}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* D5 - Resumen diario/semanal */}
+      <div className="neo-inset" style={{ padding: '14px', marginBottom: '12px' }}>
+        <span className="metric-hint" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+          <CalendarClock size={14} color="var(--ia)" /> Resumen automático
+        </span>
+        <div style={{ display: 'flex', gap: '8px', marginBottom: resumen ? '10px' : 0 }}>
+          <button className="btn btn-ghost" style={{ padding: '8px 14px', fontSize: '0.82rem' }} onClick={() => setResumen(generateSummary(transactions, 'day', currency))}>
+            Resumen del día
+          </button>
+          <button className="btn btn-ghost" style={{ padding: '8px 14px', fontSize: '0.82rem' }} onClick={() => setResumen(generateSummary(transactions, 'week', currency))}>
+            Resumen de la semana
+          </button>
+        </div>
+        {resumen && (
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+            <CalendarClock size={15} style={{ flexShrink: 0, marginTop: '2px' }} color="var(--ia)" />
+            <p className="toast-text" style={{ margin: 0 }}>{resumen}</p>
+          </div>
+        )}
+      </div>
 
       {/* D1 - Tendencias por categoría */}
       {trends.length > 0 && (

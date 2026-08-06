@@ -123,6 +123,78 @@ export function formatMoney(n, currency = 'S/.') {
   return `${currency} ${Number(n || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+/**
+ * D4 - Recomendaciones de ahorro personalizadas.
+ * Basadas solo en datos locales: categoría dominante, sobrepresupuesto y recurrentes.
+ */
+export function savingsRecommendations(transactions, budgets = {}, now = new Date()) {
+  const cur = currentMonthContext(now);
+  const monthTx = transactions.filter(t => t.type === 'expense' && monthKey(t.date) === cur.key);
+  const byCat = {};
+  monthTx.forEach(t => { byCat[t.category] = (byCat[t.category] || 0) + (t.amount || 0); });
+  const recs = [];
+
+  const top = Object.entries(byCat).sort((a, b) => b[1] - a[1])[0];
+  if (top) {
+    const cut = top[1] * 0.15;
+    if (cut >= 10) {
+      recs.push({ type: 'dominant', savings: cut, message: `Recortar un 15% en "${top[0]}" (${formatMoney(top[1])} este mes) te ahorraría ~${formatMoney(cut)} al mes.` });
+    }
+  }
+
+  Object.entries(budgets).forEach(([category, budget]) => {
+    const spent = byCat[category] || 0;
+    if (Number(budget) > 0 && spent > Number(budget)) {
+      recs.push({ type: 'over_budget', savings: spent - Number(budget), message: `"${category}" excedió su presupuesto en ${formatMoney(spent - Number(budget))} (${formatMoney(spent)} vs ${formatMoney(Number(budget))}).` });
+    }
+  });
+
+  const recurringMonthly = {};
+  transactions.filter(t => t.recurring && t.type === 'expense').forEach(t => {
+    recurringMonthly[t.category] = (recurringMonthly[t.category] || 0) + (t.amount || 0);
+  });
+  Object.entries(recurringMonthly).forEach(([category, total]) => {
+    if (total >= 50) {
+      recs.push({ type: 'recurring', savings: total, message: `Tienes ${formatMoney(total)} en suscripciones recurrentes de "${category}". Revisa si realmente las usas todas.` });
+    }
+  });
+
+  return recs.sort((a, b) => b.savings - a.savings);
+}
+
+const toISO = (d) => d.toISOString().split('T')[0];
+
+/**
+ * D5 - Resumen diario/semanal generado en cliente (sin LLM).
+ */
+export function generateSummary(transactions, period = 'day', currency = 'S/.', now = new Date()) {
+  const todayISO = toISO(now);
+  let tx;
+  let label;
+  if (period === 'day') {
+    tx = transactions.filter(t => (t.date || '') === todayISO);
+    label = 'Hoy';
+  } else {
+    const from = toISO(new Date(now.getTime() - 6 * 86400000));
+    tx = transactions.filter(t => t.date && t.date >= from && t.date <= todayISO);
+    label = 'Esta semana';
+  }
+
+  const income = sum(tx.filter(t => t.type === 'income'));
+  const expense = sum(tx.filter(t => t.type === 'expense'));
+  const nIncome = tx.filter(t => t.type === 'income').length;
+  const nExpense = tx.filter(t => t.type === 'expense').length;
+
+  let text = `${label}: ${nExpense} gasto(s) por ${formatMoney(expense, currency)} y ${nIncome} ingreso(s) por ${formatMoney(income, currency)}. Balance: ${formatMoney(income - expense, currency)}.`;
+  if (expense > 0) {
+    const byCat = {};
+    tx.filter(t => t.type === 'expense').forEach(t => { byCat[t.category] = (byCat[t.category] || 0) + (t.amount || 0); });
+    const top = Object.entries(byCat).sort((a, b) => b[1] - a[1])[0];
+    if (top) text += ` Mayor gasto en "${top[0]}" (${formatMoney(top[1], currency)}).`;
+  }
+  return text;
+}
+
 const toDate = (str) => new Date((str || '1970-01-01') + 'T00:00:00').getTime();
 const dayDiff = (a, b) => Math.round((toDate(a) - toDate(b)) / 86400000);
 

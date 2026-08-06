@@ -41,7 +41,7 @@ Voz/Texto → Motor de intención ──► Tool List (registrar, consultar, edi
 | A    | Motor de entendimiento | ✅ Hecho (P0) |
 | B    | Acciones con IA | ✅ Hecho (P0) |
 | C    | Consultas inteligentes | ✅ Hecho (P0) |
-| D    | Asesoría proactiva y análisis | 🚧 D1-D3 hecho · D4-D5 pendiente |
+| D    | Asesoría proactiva y análisis | ✅ Hecho (P1) |
 | E    | Conversación y voz | ☐ Pendiente |
 
 ---
@@ -80,8 +80,8 @@ Voz/Texto → Motor de intención ──► Tool List (registrar, consultar, edi
 - [x] D1. Insights enriquecidos: tendencias por categoría y **proyección de fin de mes**.
 - [x] D2. **Alertas tempranas**: avisar cuando una categoría va a exceder su presupuesto antes de fin de mes.
 - [x] D3. Anomalías: gastos duplicados, saltos inusuales, recurrente omitido.
-- [ ] D4. Recomendaciones de ahorro personalizadas (recortar categoría dominante).
-- [ ] D5. Resumen diario/semanal automático en español.
+- [x] D4. Recomendaciones de ahorro personalizadas (recortar categoría dominante).
+- [x] D5. Resumen diario/semanal automático en español.
 
 ## Fase E — Conversación y voz (P1)
 

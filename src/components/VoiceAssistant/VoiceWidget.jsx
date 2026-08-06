@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
 import { analyzeCommand, resolveQuery, askFinancialAdvisor, DEFAULT_CATEGORIES } from '../../services/deepseek';
+import { generateSummary } from '../../services/analytics';
 
 export default function VoiceWidget() {
   const {
@@ -162,6 +163,10 @@ export default function VoiceWidget() {
     setIsProcessing(true);
     setAssistantMessage(null);
     try {
+      if (/resumen/.test(text.toLowerCase())) {
+        const period = /semana/.test(text.toLowerCase()) ? 'week' : 'day';
+        return showMessage('info', generateSummary(transactions, period, currency));
+      }
       const analysis = await analyzeCommand(text, { categories: DEFAULT_CATEGORIES, currency });
       if (analysis.needsConfirmation) {
         setPendingAnalysis(analysis);

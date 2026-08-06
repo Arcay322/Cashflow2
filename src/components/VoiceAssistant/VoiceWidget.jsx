@@ -9,18 +9,30 @@ import {
   CheckCircle2,
   AlertCircle,
   MessageSquareText,
-  Loader2
+  Loader2,
+  ShieldAlert
 } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
-import { parseVoiceCommand, askFinancialAdvisor } from '../../services/deepseek';
+import { analyzeCommand, resolveQuery, askFinancialAdvisor, DEFAULT_CATEGORIES } from '../../services/deepseek';
 
 export default function VoiceWidget() {
-  const { addMultipleTransactions, currency, transactions, summary } = useFinance();
+  const {
+    addMultipleTransactions,
+    deleteTransaction,
+    setCategoryBudget,
+    updateCurrency,
+    exportToCSV,
+    currency,
+    transactions,
+    summary
+  } = useFinance();
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [assistantMessage, setAssistantMessage] = useState(null);
   const [speechSupported, setSpeechSupported] = useState(true);
+  const [pendingAnalysis, setPendingAnalysis] = useState(null);
+  const [pendingText, setPendingText] = useState('');
   const recognitionRef = useRef(null);
 
   useEffect(() => {
@@ -75,34 +87,115 @@ export default function VoiceWidget() {
     }
   };
 
+  const showMessage = (type, text) => {
+    setAssistantMessage({ type, text });
+    speakText(text);
+  };
+
+  const resolveDeleteTargets = (target) => {
+    let list = [...transactions];
+    if (target.type) list = list.filter(t => t.type === target.type);
+    if (target.category) list = list.filter(t => t.category === target.category);
+    if (target.description) list = list.filter(t => (t.description || '').toLowerCase().includes(target.description.toLowerCase()));
+    list.sort((a, b) => (a.date < b.date ? 1 : -1));
+    if (target.scope === 'last' && list.length > 0) list = [list[0]];
+    return list;
+  };
+
+  const performAction = async (action) => {
+    const type = action.type;
+    if (type === 'delete') {
+      const targets = resolveDeleteTargets(action.target || {});
+      if (targets.length === 0) {
+        return showMessage('error', 'No encontré registros que coincidan para borrar.');
+      }
+      for (const t of targets) {
+        if (t.id) await deleteTransaction(t.id);
+      }
+      return showMessage('success', `He borrado ${targets.length} registro(s).`);
+    }
+    if (type === 'budget' && action.budget) {
+      await setCategoryBudget(action.budget.category, action.budget.amount);
+      return showMessage('success', `Presupuesto de ${action.budget.category} fijado en ${currency} ${action.budget.amount.toFixed(2)}.`);
+    }
+    if (type === 'currency' && action.currency) {
+      await updateCurrency(action.currency);
+      return showMessage('success', `Moneda cambiada a ${action.currency}.`);
+    }
+    if (type === 'export') {
+      exportToCSV();
+      return showMessage('success', 'Exportando tu historial a CSV...');
+    }
+    if (type === 'update') {
+      return showMessage('info', 'Por ahora puedo borrar, ajustar presupuestos o cambiar la moneda. Intenta uno de esos.');
+    }
+    return showMessage('error', 'No pude reconocer la acción.');
+  };
+
+  const executeAnalysis = async (analysis, text) => {
+    if (analysis.intent === 'register') {
+      if (!analysis.transactions || analysis.transactions.length === 0) {
+        return showMessage('error', 'No pude reconocer un monto claro. Intenta decir: "Regístrame 20 soles en galletas".');
+      }
+      await addMultipleTransactions(analysis.transactions);
+      const labels = analysis.transactions.map(t => `${t.type === 'income' ? 'ingreso' : 'gasto'} de ${Number(t.amount).toFixed(2)}${t.recurring ? ' (mensual)' : ''}`).join(' y ');
+      return showMessage('success', `Listo. Registré ${labels}.`);
+    }
+    if (analysis.intent === 'query') {
+      const answer = resolveQuery(analysis.query, transactions, currency);
+      return showMessage('info', answer);
+    }
+    if (analysis.intent === 'advice') {
+      const advice = await askFinancialAdvisor(text, transactions, summary);
+      return showMessage('info', advice);
+    }
+    if (analysis.intent === 'action') {
+      return performAction(analysis.action);
+    }
+    return showMessage('info', 'No entendí del todo. Prueba con: "Regístrame 20 soles en galletas", "¿Cuánto gasté esta semana?", "Borra el último gasto" o "Cambia la moneda a dólares".');
+  };
+
   const handleProcessText = async (textToProcess) => {
     const text = textToProcess || transcript;
     if (!text.trim()) return;
 
     setIsProcessing(true);
     setAssistantMessage(null);
-
     try {
-      const result = await parseVoiceCommand(text, undefined, currency);
-
-      if (result.isQuery) {
-        const advice = await askFinancialAdvisor(text, transactions, summary);
-        setAssistantMessage({ type: 'info', text: advice });
-        speakText(advice);
-      } else if (result.transactions && result.transactions.length > 0) {
-        await addMultipleTransactions(result.transactions);
-        const msg = result.message || `Registrado exitosamente: ${result.transactions.length} transacción(es).`;
-        setAssistantMessage({ type: 'success', text: msg });
-        speakText(msg);
-        setTranscript('');
+      const analysis = await analyzeCommand(text, { categories: DEFAULT_CATEGORIES, currency });
+      if (analysis.needsConfirmation) {
+        setPendingAnalysis(analysis);
+        setPendingText(text);
       } else {
-        setAssistantMessage({ type: 'error', text: 'No se pudo interpretar el monto o la categoría. Intenta decir: "Regístrame 20 soles en galletas"' });
+        await executeAnalysis(analysis, text);
       }
     } catch (err) {
       setAssistantMessage({ type: 'error', text: 'Error procesando comando: ' + err.message });
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const confirmPending = async () => {
+    const analysis = pendingAnalysis;
+    const text = pendingText;
+    setPendingAnalysis(null);
+    setPendingText('');
+    setIsProcessing(true);
+    try {
+      await executeAnalysis(analysis, text);
+    } catch (err) {
+      setAssistantMessage({ type: 'error', text: 'Error al confirmar: ' + err.message });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const cancelPending = () => {
+    setPendingAnalysis(null);
+    setPendingText('');
+    setAssistantMessage({ type: 'info', text: 'Acción cancelada.' });
+    speakText('Acción cancelada');
   };
 
   const speakText = (text) => {
@@ -223,6 +316,29 @@ export default function VoiceWidget() {
           </button>
         ))}
       </div>
+
+      {/* Confirmation Card */}
+      {pendingAnalysis && (
+        <div className="toast toast-warn" style={{ borderLeftColor: 'var(--ia)' }}>
+          <ShieldAlert size={20} style={{ marginTop: '2px', flexShrink: 0, color: 'var(--ia)' }} />
+          <div style={{ flex: 1 }}>
+            <span className="toast-title">¿Confirmas esta acción?</span>
+            <p className="toast-text">
+              {pendingAnalysis.intent === 'action'
+                ? `Acción detectada: ${pendingAnalysis.action?.type === 'delete' ? 'borrar registros' : pendingAnalysis.action?.type === 'budget' ? 'ajustar presupuesto' : pendingAnalysis.action?.type === 'currency' ? 'cambiar moneda' : pendingAnalysis.action?.type === 'export' ? 'exportar CSV' : pendingAnalysis.action?.type || 'acción'}.`
+                : 'Quiero confirmar antes de continuar con tu solicitud.'}
+            </p>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+              <button className="btn-primary" onClick={confirmPending} disabled={isProcessing} style={{ padding: '8px 16px', fontSize: '0.85rem' }}>
+                Sí, continuar
+              </button>
+              <button className="btn-secondary" onClick={cancelPending} disabled={isProcessing} style={{ padding: '8px 16px', fontSize: '0.85rem' }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Assistant Response Toast Card */}
       {assistantMessage && (

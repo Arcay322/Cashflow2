@@ -104,14 +104,22 @@ export default function VoiceWidget() {
     speakText(text);
   };
 
+  const speakify = (text) => String(text || '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/__(.+?)__/g, '$1')
+    .replace(/[`*_#]/g, ' ')
+    .replace(/S\/\.?/gi, 'soles')
+    .replace(/\s*€/g, ' euros ')
+    .replace(/\s*\$/g, ' dólares ')
+    .replace(/(\d),(?=\d{3}\b)/g, '$1')
+    .replace(/\.\d{2}\b/g, '')
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{2702}-\u{27B0}]/gu, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
   const speakText = (text) => {
     if ('speechSynthesis' in window) {
-      const clean = String(text)
-        .replace(/S\/\./g, 'soles')
-        .replace(/\$/g, ' dólares ')
-        .replace(/€/g, ' euros ')
-        .replace(/\s+/g, ' ')
-        .trim();
+      const clean = speakify(text);
       const utterance = new SpeechSynthesisUtterance(clean);
       utterance.lang = 'es-ES';
       const voices = window.speechSynthesis.getVoices();

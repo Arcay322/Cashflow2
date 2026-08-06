@@ -108,12 +108,13 @@ export default function VoiceWidget() {
     .replace(/\*\*([^*]+)\*\*/g, '$1')
     .replace(/__(.+?)__/g, '$1')
     .replace(/[`*_#]/g, ' ')
-    .replace(/S\/\.?/gi, 'soles')
-    .replace(/\s*€/g, ' euros ')
-    .replace(/\s*\$/g, ' dólares ')
+    .replace(/S\s*\/\s*\.?/gi, 'soles ')
+    .replace(/\s*€\s*/g, ' euros ')
+    .replace(/\s*\$\s*/g, ' dólares ')
     .replace(/(\d),(?=\d{3}\b)/g, '$1')
     .replace(/\.\d{2}\b/g, '')
     .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{2702}-\u{27B0}]/gu, '')
+    .replace(/[Ss]\s*\/\s*\.?/g, 'soles ')
     .replace(/\s{2,}/g, ' ')
     .trim();
 

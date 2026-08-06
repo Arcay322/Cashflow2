@@ -88,10 +88,16 @@ Según el intent llena el campo correspondiente:
 
 3. action -> "action": { "type":"delete"|"update"|"budget"|"currency"|"export",
    "target":{ "type"?, "category"?, "description"?, "scope":"last"|"all" },
+   "amount":number (solo para "update": el nuevo monto),
    "budget": { "category":"...", "amount":number },
    "currency":"S/."|"$"|"€" }.
 
 4. advice -> "advice":true.
+
+CONTEXTO PREVIO: recibe los últimos mensajes de la conversación. Úsalos para entender referencias:
+- Si el usuario corrige algo dicho antes ("no era 30, era 40", "me equivoqué", "era 20 no 10"), devuelve intent "action" con type "update", target {scope:"last"} y amount con el nuevo monto.
+- Si continúa agregando gastos ("y 10 en refrescos", "además 5 en pan"), devuelve intent "register" SOLO con la nueva transacción, sin repetir las anteriores.
+- Si responde "sí"/"no" a tu confirmación, devuelve intent "unknown" (el botón se encarga), o repite la acción con needsConfirmation false.
 
 OTROS CAMPOS:
 - "needsConfirmation": true si NO estás seguro del monto/categoría/destino, o la acción es destructiva (delete/update).
@@ -111,9 +117,11 @@ PRECAUCIÓN: NUNCA inventes montos ni categorías inexistentes. Si un dato falta
 export async function analyzeCommand(text, ctx = {}) {
   const categories = ctx.categories || DEFAULT_CATEGORIES;
   const currency = ctx.currency || 'S/.';
+  const memory = Array.isArray(ctx.memory) ? ctx.memory.slice(-4) : [];
   try {
     const data = await callDeepSeek([
       { role: 'system', content: SYSTEM_PROMPT(categories, currency) },
+      ...memory.map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: String(m.content || '').slice(0, 300) })),
       { role: 'user', content: text }
     ], 0.1, { type: 'json_object' });
     const content = data.choices?.[0]?.message?.content;
@@ -164,6 +172,7 @@ function normalizeAnalysis(raw, categories) {
     a.action = {
       type,
       target: ac.target || {},
+      amount: typeof ac.amount === 'number' && ac.amount > 0 ? ac.amount : null,
       budget: (ac.budget && ac.budget.category && typeof ac.budget.amount === 'number') ? { category: ac.budget.category, amount: ac.budget.amount } : null,
       currency: ac.currency && CURRENCIES.includes(ac.currency) ? ac.currency : null
     };
@@ -221,6 +230,12 @@ export function fallbackAnalyze(text, _categories, currency) {
     if (/(dolares|dólares|usd|\$)/.test(lower)) currency = '$';
     if (/(euros|euro|eur|€)/.test(lower)) currency = '€';
     return { intent: 'action', action: { type: 'currency', currency }, needsConfirmation: false, message: '' };
+  }
+
+  const allNumbers = lower.match(/\d+(?:[.,]\d{1,2})?/g);
+  const lastNumber = allNumbers ? allNumbers[allNumbers.length - 1] : null;
+  if (/(no era|me equivoqu[eé]|era |corrige|corregir|corrijo)/.test(lower) && lastNumber && !/(presupuesto|moneda|borra|elimina)/.test(lower)) {
+    return { intent: 'action', action: { type: 'update', target: { scope: 'last' }, amount: parseFloat(lastNumber.replace(',', '.')) }, needsConfirmation: false, message: '' };
   }
 
   const budgetMatch = lower.match(/(\d+(?:[.,]\d{1,2})?)/);

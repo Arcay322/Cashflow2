@@ -20,6 +20,7 @@ export default function VoiceWidget() {
   const {
     addMultipleTransactions,
     deleteTransaction,
+    updateTransaction,
     setCategoryBudget,
     updateCurrency,
     exportToCSV,
@@ -34,7 +35,10 @@ export default function VoiceWidget() {
   const [speechSupported, setSpeechSupported] = useState(true);
   const [pendingAnalysis, setPendingAnalysis] = useState(null);
   const [pendingText, setPendingText] = useState('');
+  const [listeningForConfirm, setListeningForConfirm] = useState(false);
+  const [conversationMemory, setConversationMemory] = useState([]);
   const recognitionRef = useRef(null);
+  const confirmationRecognitionRef = useRef(null);
 
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -67,6 +71,12 @@ export default function VoiceWidget() {
     }
   }, []);
 
+  useEffect(() => {
+    return () => {
+      try { confirmationRecognitionRef.current?.stop(); } catch { /* noop */ }
+    };
+  }, []);
+
   const toggleListening = () => {
     if (!speechSupported) {
       alert("Tu navegador no soporta reconocimiento de voz nativo. Puedes escribir la frase en el campo de texto.");
@@ -90,7 +100,54 @@ export default function VoiceWidget() {
 
   const showMessage = (type, text) => {
     setAssistantMessage({ type, text });
+    setConversationMemory(prev => [...prev, { role: 'assistant', content: text }].slice(-6));
     speakText(text);
+  };
+
+  const speakText = (text) => {
+    if ('speechSynthesis' in window) {
+      const clean = String(text)
+        .replace(/S\/\./g, 'soles')
+        .replace(/\$/g, ' dólares ')
+        .replace(/€/g, ' euros ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      const utterance = new SpeechSynthesisUtterance(clean);
+      utterance.lang = 'es-ES';
+      const voices = window.speechSynthesis.getVoices();
+      const preferred = voices.find(v => /es(-|_)(MX|US)/i.test(v.lang) && /natural|neural|premium|enhanced/i.test(v.name))
+        || voices.find(v => /^es(-|_)(ES|MX|US)/i.test(v.lang));
+      if (preferred) utterance.voice = preferred;
+      utterance.rate = 0.97;
+      utterance.pitch = 1.0;
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  const stopConfirmationListen = () => {
+    setListeningForConfirm(false);
+    try { confirmationRecognitionRef.current?.stop(); } catch { /* noop */ }
+    confirmationRecognitionRef.current = null;
+  };
+
+  const startConfirmationListen = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+    const rec = new SpeechRecognition();
+    rec.lang = 'es-ES';
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+    rec.onresult = (event) => {
+      const heard = (event.results[0]?.[0]?.transcript || '').toLowerCase();
+      stopConfirmationListen();
+      if (/(s[ií]|confirmo|adelante|dale|o[kc]|bien|correcto)/.test(heard)) confirmPending();
+      else if (/(no|cancelar|para|detente|quita)/.test(heard)) cancelPending();
+    };
+    rec.onend = () => { setListeningForConfirm(false); confirmationRecognitionRef.current = null; };
+    rec.onerror = () => { setListeningForConfirm(false); confirmationRecognitionRef.current = null; };
+    try { rec.start(); } catch { return; }
+    confirmationRecognitionRef.current = rec;
+    setListeningForConfirm(true);
   };
 
   const resolveDeleteTargets = (target) => {
@@ -128,7 +185,16 @@ export default function VoiceWidget() {
       return showMessage('success', 'Exportando tu historial a CSV...');
     }
     if (type === 'update') {
-      return showMessage('info', 'Por ahora puedo borrar, ajustar presupuestos o cambiar la moneda. Intenta uno de esos.');
+      if (!action.amount) {
+        return showMessage('info', 'Dime el nuevo monto, por ejemplo: "no era 30, era 40".');
+      }
+      const targets = resolveDeleteTargets(action.target || { scope: 'last' });
+      if (targets.length === 0) {
+        return showMessage('error', 'No encontré el registro para corregir.');
+      }
+      const t = targets[0];
+      if (t.id) await updateTransaction(t.id, { amount: action.amount });
+      return showMessage('success', `Corregido "${t.description || t.category}" a ${currency} ${Number(action.amount).toFixed(2)}.`);
     }
     return showMessage('error', 'No pude reconocer la acción.');
   };
@@ -162,15 +228,18 @@ export default function VoiceWidget() {
 
     setIsProcessing(true);
     setAssistantMessage(null);
+    setConversationMemory(prev => [...prev, { role: 'user', content: text }].slice(-6));
     try {
       if (/resumen/.test(text.toLowerCase())) {
         const period = /semana/.test(text.toLowerCase()) ? 'week' : 'day';
         return showMessage('info', generateSummary(transactions, period, currency));
       }
-      const analysis = await analyzeCommand(text, { categories: DEFAULT_CATEGORIES, currency });
+      const analysis = await analyzeCommand(text, { categories: DEFAULT_CATEGORIES, currency, memory: conversationMemory });
       if (analysis.needsConfirmation) {
         setPendingAnalysis(analysis);
         setPendingText(text);
+        speakText('¿Confirmas que continúe?');
+        startConfirmationListen();
       } else {
         await executeAnalysis(analysis, text);
       }
@@ -182,6 +251,7 @@ export default function VoiceWidget() {
   };
 
   const confirmPending = async () => {
+    stopConfirmationListen();
     const analysis = pendingAnalysis;
     const text = pendingText;
     setPendingAnalysis(null);
@@ -197,19 +267,11 @@ export default function VoiceWidget() {
   };
 
   const cancelPending = () => {
+    stopConfirmationListen();
     setPendingAnalysis(null);
     setPendingText('');
     setAssistantMessage({ type: 'info', text: 'Acción cancelada.' });
     speakText('Acción cancelada');
-  };
-
-  const speakText = (text) => {
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'es-ES';
-      utterance.rate = 1.0;
-      window.speechSynthesis.speak(utterance);
-    }
   };
 
   return (
@@ -340,6 +402,14 @@ export default function VoiceWidget() {
               <button className="btn-secondary" onClick={cancelPending} disabled={isProcessing} style={{ padding: '8px 16px', fontSize: '0.85rem' }}>
                 Cancelar
               </button>
+              {listeningForConfirm && (
+                <span className="metric-hint" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginLeft: 'auto' }}>
+                  <span className="audio-bar" />
+                  <span className="audio-bar" />
+                  <span className="audio-bar" />
+                  Escuchando respuesta...
+                </span>
+              )}
             </div>
           </div>
         </div>

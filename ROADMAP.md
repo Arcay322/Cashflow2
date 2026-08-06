@@ -42,7 +42,7 @@ Voz/Texto → Motor de intención ──► Tool List (registrar, consultar, edi
 | B    | Acciones con IA | ✅ Hecho (P0) |
 | C    | Consultas inteligentes | ✅ Hecho (P0) |
 | D    | Asesoría proactiva y análisis | ✅ Hecho (P1) |
-| E    | Conversación y voz | ☐ Pendiente |
+| E    | Conversación y voz | ✅ Hecho (P1) |
 
 ---
 
@@ -85,10 +85,10 @@ Voz/Texto → Motor de intención ──► Tool List (registrar, consultar, edi
 
 ## Fase E — Conversación y voz (P1)
 
-- [ ] E1. **Multiturno con memoria del turno** (registrar varias frases encadenadas).
-- [ ] E2. **Corrección** ("no era 30, era 40") que ajusta el último registro.
-- [ ] E3. **Confirmación hablada** contextual (mitiga errores de trancripción).
-- [ ] E4. **TTS** más natural (opcional).
+- [x] E1. **Multiturno con memoria del turno** (registrar varias frases encadenadas).
+- [x] E2. **Corrección** ("no era 30, era 40") que ajusta el último registro.
+- [x] E3. **Confirmación hablada** contextual (mitiga errores de transcripción).
+- [x] E4. **TTS** más natural (voz española + "soles/dólares/euros").
 
 ---
 

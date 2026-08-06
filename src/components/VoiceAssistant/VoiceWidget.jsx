@@ -15,6 +15,7 @@ import {
 import { useFinance } from '../../context/FinanceContext';
 import { analyzeCommand, resolveQuery, askFinancialAdvisor, DEFAULT_CATEGORIES } from '../../services/deepseek';
 import { generateSummary } from '../../services/analytics';
+import { speakify } from '../../services/tts';
 
 export default function VoiceWidget() {
   const {
@@ -103,22 +104,6 @@ export default function VoiceWidget() {
     setConversationMemory(prev => [...prev, { role: 'assistant', content: text }].slice(-6));
     speakText(text);
   };
-
-  const speakify = (text) => String(text || '')
-    .replace(/\*\*([^*]+)\*\*/g, '$1')
-    .replace(/__(.+?)__/g, '$1')
-    .replace(/[`*_#]/g, ' ')
-    .replace(/(S\s*\/\s*\.?)\s*([\d.,]*\d)/gi, '$2 soles')
-    .replace(/(S\s*\/\s*\.?)/gi, 'soles')
-    .replace(/(€)\s*([\d.,]*\d)/g, '$2 euros')
-    .replace(/\s*€/g, ' euros')
-    .replace(/(\$)\s*([\d.,]*\d)/g, '$2 dólares')
-    .replace(/\s*\$/g, ' dólares')
-    .replace(/(\d),(?=\d{3}\b)/g, '$1')
-    .replace(/\.\d{2}\b/g, '')
-    .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{2702}-\u{27B0}]/gu, '')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
 
   const speakText = (text) => {
     if ('speechSynthesis' in window) {

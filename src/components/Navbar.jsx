@@ -20,7 +20,7 @@ export default function Navbar({ onOpenSettings, onOpenAuth, theme, onToggleThem
   const { exportToCSV } = useFinance();
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isInstalled, setIsInstalled] = useState(false);
-  const [showIosHelp, setShowIosHelp] = useState(false);
+  const [showInstallHelp, setShowInstallHelp] = useState(false);
 
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 
@@ -87,8 +87,8 @@ export default function Navbar({ onOpenSettings, onOpenAuth, theme, onToggleThem
               <span style={{ fontSize: '0.9rem' }} className="hide-mobile">Instalar App</span>
             </button>
           )}
-          {!isStandalone && !isInstalled && !deferredPrompt && isIOS && (
-            <button onClick={() => setShowIosHelp(true)} className="btn-secondary" title="Instalar en iPhone/iPad">
+          {!isStandalone && !isInstalled && !deferredPrompt && (
+            <button onClick={() => setShowInstallHelp(true)} className="btn-secondary" title="Cómo instalar Cashflow IA como App">
               <Smartphone size={16} />
               <span style={{ fontSize: '0.9rem' }} className="hide-mobile">Instalar App</span>
             </button>
@@ -153,23 +153,31 @@ export default function Navbar({ onOpenSettings, onOpenAuth, theme, onToggleThem
         </div>
       </div>
 
-      {/* iOS Install Help Modal */}
-      {showIosHelp && (
+      {/* Install Help Modal */}
+      {showInstallHelp && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
-        }} onClick={() => setShowIosHelp(false)}>
+        }} onClick={() => setShowInstallHelp(false)}>
           <div className="neo-card" style={{ maxWidth: '360px', width: '100%', padding: '22px' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <h3 style={{ fontWeight: 800, color: 'var(--text-main)' }}>Instalar en iPhone/iPad</h3>
-              <button className="btn-icon" onClick={() => setShowIosHelp(false)} aria-label="Cerrar">✕</button>
+              <h3 style={{ fontWeight: 800, color: 'var(--text-main)' }}>Instalar Cashflow IA</h3>
+              <button className="btn-icon" onClick={() => setShowInstallHelp(false)} aria-label="Cerrar">✕</button>
             </div>
-            <ol style={{ paddingLeft: '18px', margin: 0, display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-              <li>Toca el botón <strong>Compartir</strong> <span className="badge">⤴</span> en Safari.</li>
-              <li>Desplázate y toca <strong>"Añadir a pantalla de inicio"</strong>.</li>
-              <li>Toca <strong>"Añadir"</strong> en la esquina superior derecha.</li>
-            </ol>
-            <p className="metric-hint" style={{ marginTop: '12px' }}>La app quedará como un icono en tu pantalla, sin navegador.</p>
+            {isIOS ? (
+              <ol style={{ paddingLeft: '18px', margin: 0, display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                <li>Toca el botón <strong>Compartir</strong> <span className="badge">⤴</span> en Safari.</li>
+                <li>Desplázate y toca <strong>"Añadir a pantalla de inicio"</strong>.</li>
+                <li>Toca <strong>"Añadir"</strong> en la esquina superior derecha.</li>
+              </ol>
+            ) : (
+              <ol style={{ paddingLeft: '18px', margin: 0, display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                <li>Abre Cashflow IA en <strong>Chrome</strong> y úsala un par de minutos (inicia sesión, registra un gasto).</li>
+                <li>Cierra Chrome y vuelve a entrar. Al poco debería aparecer la opción <strong>"Instalar aplicación"</strong>.</li>
+                <li>Si no aparece, toca el menú <strong>⋮</strong> (arriba a la derecha) y elige <strong>"Añadir a pantalla de inicio"</strong>.</li>
+              </ol>
+            )}
+            <p className="metric-hint" style={{ marginTop: '12px' }}>Modo incógnito no muestra la opción de instalar: entra desde Chrome normal.</p>
           </div>
         </div>
       )}

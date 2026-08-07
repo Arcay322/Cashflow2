@@ -13,11 +13,16 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useFinance } from '../context/FinanceContext';
 
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
 export default function Navbar({ onOpenSettings, onOpenAuth, theme, onToggleTheme }) {
   const { currentUser, logout } = useAuth();
   const { exportToCSV } = useFinance();
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [showIosHelp, setShowIosHelp] = useState(false);
+
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 
   useEffect(() => {
     window.addEventListener('beforeinstallprompt', (e) => {
@@ -76,8 +81,14 @@ export default function Navbar({ onOpenSettings, onOpenAuth, theme, onToggleThem
           </button>
 
           {/* PWA Install Button */}
-          {deferredPrompt && !isInstalled && (
+          {!isStandalone && !isInstalled && deferredPrompt && (
             <button onClick={handleInstallPWA} className="btn-secondary" title="Instalar como App en tu teléfono o PC">
+              <Smartphone size={16} />
+              <span style={{ fontSize: '0.9rem' }} className="hide-mobile">Instalar App</span>
+            </button>
+          )}
+          {!isStandalone && !isInstalled && !deferredPrompt && isIOS && (
+            <button onClick={() => setShowIosHelp(true)} className="btn-secondary" title="Instalar en iPhone/iPad">
               <Smartphone size={16} />
               <span style={{ fontSize: '0.9rem' }} className="hide-mobile">Instalar App</span>
             </button>
@@ -141,6 +152,27 @@ export default function Navbar({ onOpenSettings, onOpenAuth, theme, onToggleThem
           )}
         </div>
       </div>
+
+      {/* iOS Install Help Modal */}
+      {showIosHelp && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
+        }} onClick={() => setShowIosHelp(false)}>
+          <div className="neo-card" style={{ maxWidth: '360px', width: '100%', padding: '22px' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <h3 style={{ fontWeight: 800, color: 'var(--text-main)' }}>Instalar en iPhone/iPad</h3>
+              <button className="btn-icon" onClick={() => setShowIosHelp(false)} aria-label="Cerrar">✕</button>
+            </div>
+            <ol style={{ paddingLeft: '18px', margin: 0, display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+              <li>Toca el botón <strong>Compartir</strong> <span className="badge">⤴</span> en Safari.</li>
+              <li>Desplázate y toca <strong>"Añadir a pantalla de inicio"</strong>.</li>
+              <li>Toca <strong>"Añadir"</strong> en la esquina superior derecha.</li>
+            </ol>
+            <p className="metric-hint" style={{ marginTop: '12px' }}>La app quedará como un icono en tu pantalla, sin navegador.</p>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'pwa-icon.svg'],
+      includeAssets: ['favicon.svg', 'pwa-icon.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'Cashflow IA - Finanzas por Voz',
         short_name: 'Cashflow IA',
@@ -21,16 +21,28 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
-            src: '/pwa-icon.svg',
-            sizes: 'any',
-            type: 'image/svg+xml',
+            src: '/pwa-icon-192.png',
+            sizes: '192x192',
+            type: 'image/png',
             purpose: 'any'
+          },
+          {
+            src: '/pwa-icon-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: '/pwa-icon-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
           },
           {
             src: '/pwa-icon.svg',
             sizes: 'any',
             type: 'image/svg+xml',
-            purpose: 'maskable'
+            purpose: 'any'
           }
         ]
       }

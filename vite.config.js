@@ -8,7 +8,10 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'pwa-icon.svg', 'apple-touch-icon.png'],
+      devOptions: {
+        enabled: true
+      },
+      includeAssets: ['favicon.svg', 'pwa-icon.svg', 'apple-touch-icon.png', 'manifest.json'],
       manifest: {
         name: 'Cashflow IA - Finanzas por Voz',
         short_name: 'Cashflow IA',

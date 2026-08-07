@@ -1,0 +1,10 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.cashflow2.twa",
+      "sha256_cert_fingerprints": ["1A:7E:3C:D7:25:EA:2E:21:04:99:29:2D:7A:68:4F:F3:25:0A:39:96:B3:B1:3E:C5:BB:EC:48:A7:7B:A2:86:0A"]
+    }
+  }
+]
